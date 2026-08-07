@@ -6,10 +6,10 @@ import numpy as np
 st.set_page_config(page_title="Guru Asset Analyzer", layout="centered")
 
 st.title("📊 Multi-Asset Strategy Analyzer")
-st.write("Input any stock ticker, new public equity, or cryptocurrency to evaluate its performance profile.")
+st.write("Input any stock ticker, new public equity, cryptocurrency, or dividend asset to evaluate its profile.")
 
 # User input field
-ticker_symbol = st.text_input("Enter Asset Ticker (e.g., AAPL, BTC-USD, KVUE):", "").upper()
+ticker_symbol = st.text_input("Enter Asset Ticker (e.g., AAPL, SCHD, O, BTC-USD):", "").upper()
 
 if ticker_symbol:
     with st.spinner(f"Scrubbing live market data for {ticker_symbol}..."):
@@ -27,6 +27,11 @@ if ticker_symbol:
             if history.empty:
                 st.error("No trading history found for this ticker symbol. Please verify the spelling.")
                 st.stop()
+
+            # Extract Dividend Data Safely
+            dividend_yield = info.get('dividendYield', 0.0)
+            if dividend_yield is None:
+                dividend_yield = 0.0
 
             # ==========================================
             # 1. TECHNICAL MOMENTUM LAYER (ALL ASSETS)
@@ -120,10 +125,14 @@ if ticker_symbol:
                         st.metric(label="Suggested Holding Duration", value="0 Days (Immediate Skip)")
                         st.info(f"**Justification:** New public listing lacking long-term foundational metrics, and near-term price momentum is downward.")
                 else:
-                    if long_term_score >= 3:
-                        st.success("### 🟢 RECOMMENDATION: LONG-TERM INVESTING HOLD")
+                    # Upgrade check logic to identify structural dividend strongholds
+                    if long_term_score >= 3 or (dividend_yield > 0.03 and long_term_score >= 2):
+                        st.success("### 🟢 RECOMMENDATION: LONG-TERM INVESTING HOLD / INCOME SOURCE")
                         st.metric(label="Suggested Holding Duration", value="3 to 10+ Years")
-                        st.info(f"**Justification:** Asset qualifies on mature corporate stability standards ({long_term_score}/{total_metrics}). Built to anchor long-term wealth portfolios.")
+                        if dividend_yield > 0:
+                            st.info(f"**Justification:** Asset qualifies as a foundational long-term hold generating a steady **{dividend_yield:.2%} live yield**. Perfect for compounding capital allocations.")
+                        else:
+                            st.info(f"**Justification:** Asset qualifies on mature corporate stability standards ({long_term_score}/{total_metrics}). Built to anchor long-term wealth portfolios.")
                     elif long_term_score < 3 and short_term_bullish:
                         st.warning("### 🟡 RECOMMENDATION: SHORT-TERM MOMENTUM TRADE ONLY")
                         st.metric(label="Suggested Holding Duration", value="2 to 6 Weeks (Strict Stop-Loss)")
@@ -140,6 +149,7 @@ if ticker_symbol:
             with st.expander("📊 View Technical & Analytical Indicators"):
                 st.write(f"**Current Price:** ${current_price:,.2f} | **Short-Term Baseline MA:** ${ma_50:,.2f}")
                 st.write(f"**14-Day RSI Momentum Indicator:** {rsi:.1f}")
+                st.write(f"**Live Dividend Yield:** {dividend_yield:.2%}")
                 if not is_crypto and results:
                     st.write("---")
                     st.write("### Corporate Fundamental Checklist Summary:")
@@ -147,7 +157,7 @@ if ticker_symbol:
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
             # ==========================================
-            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN TOGGLE
+            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN & DRIP
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -163,7 +173,7 @@ if ticker_symbol:
                 st.subheader("💰 Interactive Performance Simulator")
                 
                 if years_trading < 1.0:
-                    st.caption(f"🚨 **New Asset Profile:** This ticker has a short public footprint of only **{total_trading_days} trading days** (~{years_trading*12:.1f} months).")
+                    st.caption(f"🚨 **New Asset Profile:** This ticker has a short public footprint of only **{total_trading_days} trading days**.")
                 else:
                     st.caption(f"Simulating performance across the available **{years_trading:.1f}-year** lifecycle of **{ticker_symbol}**.")
                 
@@ -172,13 +182,18 @@ if ticker_symbol:
                     sim_principal = st.number_input("Starting Investment ($):", min_value=100, max_value=1000000, value=1000, step=100)
                 with col_sim2:
                     default_slider_val = float(max(-0.99, min(2.0, asset_true_cagr)))
-                    projected_rate = st.slider("Projected Annual Growth Rate (%):", min_value=-50.0, max_value=150.0, value=default_slider_val * 100.0, step=0.5) / 100.0
+                    projected_rate = st.slider("Projected Annual Price Appreciation (%):", min_value=-50.0, max_value=150.0, value=default_slider_val * 100.0, step=0.5) / 100.0
 
-                market_scenario = st.selectbox(
-                    "Simulate Market Downturn Event:",
-                    ["None (Normal Market Conditions)", "Minor Correction (-10% Drop)", "Massive Downturn (-30% Crash)"]
-                )
-                
+                # Interactive Dividend Controls Side-by-Side with Downside Scenario
+                col_ctrl1, col_ctrl2 = st.columns(2)
+                with col_ctrl1:
+                    market_scenario = st.selectbox(
+                        "Simulate Market Downturn Event:",
+                        ["None (Normal Market Conditions)", "Minor Correction (-10% Drop)", "Massive Downturn (-30% Crash)"]
+                    )
+                with col_ctrl2:
+                    drip_enabled = st.checkbox(f"Reinvest Dividends (DRIP) — Yield: {dividend_yield:.2%}", value=True if dividend_yield > 0 else False, disabled=(dividend_yield == 0))
+
                 if "Minor" in market_scenario:
                     crash_multiplier = 0.90
                 elif "Massive" in market_scenario:
@@ -186,7 +201,10 @@ if ticker_symbol:
                 else:
                     crash_multiplier = 1.00
 
+                # Add dividend yield directly to the compounding engine if DRIP is checked
                 sim_rate = projected_rate
+                if drip_enabled:
+                    sim_rate += dividend_yield
                 
                 if years_trading < 1.0:
                     v1 = (sim_principal * (1 + sim_rate)**(1/12)) * crash_multiplier
@@ -210,7 +228,7 @@ if ticker_symbol:
                     with c2: st.metric(label=f"Proj. {target_5y}-Year Value", value=f"${v5:,.2f}", delta=f"${v5 - sim_principal:+,.2f}")
                     with c3: st.metric(label=f"Proj. {target_10y}-Year Value", value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
                 
-                st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}**.")
+                st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}** (excluding dividends).")
                 st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
 
         except Exception as e:
