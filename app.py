@@ -26,29 +26,53 @@ if ticker_symbol:
                 st.error("Insufficient historical financial data available for this ticker.")
                 st.stop()
                 
-            # ==========================================
+           # ==========================================
             # 1. CORE DATA CRITERIA EVALUATION
             # ==========================================
             results = {}
             
-            # Growth
-            rev_growth = (financials.iloc[0]['Total Revenue'] - financials.iloc[1]['Total Revenue']) / financials.iloc[1]['Total Revenue']
-            results['Revenue Growth (>10%)'] = (rev_growth > 0.10, f"{rev_growth:.1%}")
+            # Helper logic to handle messy, inconsistent index row names from Yahoo
+            def get_financial_row(df, possible_names):
+                # Standardize index row labels (lowercase, stripped spaces)
+                clean_index = [str(idx).lower().replace(" ", "").replace("_", "") for idx in df.index]
+                for name in possible_names:
+                    target = name.lower().replace(" ", "").replace("_", "")
+                    if target in clean_index:
+                        idx_position = clean_index.index(target)
+                        return df.iloc[idx_position]
+                return None
+
+            # Look up Revenue safely
+            revenue_row = get_financial_row(financials, ['Total Revenue', 'TotalRevenue', 'Revenue'])
+            if revenue_row is not None and len(revenue_row) >= 2:
+                rev_growth = (revenue_row.iloc[0] - revenue_row.iloc[1]) / (revenue_row.iloc[1] if revenue_row.iloc[1] != 0 else 1)
+                results['Revenue Growth (>10%)'] = (rev_growth > 0.10, f"{rev_growth:.1%}")
+            else:
+                results['Revenue Growth (>10%)'] = (False, "Data Missing")
+
+            # Look up Net Income safely to check EPS/Income Growth
+            net_inc_row = get_financial_row(financials, ['Net Income', 'NetIncome', 'Net Income Common Stockholders'])
+            if net_inc_row is not None and len(net_inc_row) >= 2:
+                net_inc_current = net_inc_row.iloc[0]
+                net_inc_prev = net_inc_row.iloc[1]
+                eps_growth_yoy = (net_inc_current - net_inc_prev) / abs(net_inc_prev) if net_inc_prev != 0 else 0
+                results['EPS Growth (>12%)'] = (eps_growth_yoy > 0.12, f"{eps_growth_yoy:.1%}")
+            else:
+                results['EPS Growth (>12%)'] = (False, "Data Missing")
             
-            net_inc_current = financials.iloc[0]['Net Income']
-            net_inc_prev = financials.iloc[1]['Net Income']
-            eps_growth_yoy = (net_inc_current - net_inc_prev) / abs(net_inc_prev) if net_inc_prev != 0 else 0
-            results['EPS Growth (>12%)'] = (eps_growth_yoy > 0.12, f"{eps_growth_yoy:.1%}")
-            
-            # Cash Flow
-            fcf = cashflow.iloc[0]['Free Cash Flow'] if 'Free Cash Flow' in cashflow.index else 0
-            rev = financials.iloc[0]['Total Revenue']
-            fcf_margin = fcf / rev if rev else 0
-            results['FCF Margin (>10%)'] = (fcf_margin > 0.10, f"{fcf_margin:.1%}")
+            # Look up Free Cash Flow safely
+            fcf_row = get_financial_row(cashflow, ['Free Cash Flow', 'FreeCashFlow', 'Total Cash From Operating Activities'])
+            if fcf_row is not None and revenue_row is not None:
+                fcf_val = fcf_row.iloc[0]
+                rev_val = revenue_row.iloc[0]
+                fcf_margin = fcf_val / rev_val if rev_val != 0 else 0
+                results['FCF Margin (>10%)'] = (fcf_margin > 0.10, f"{fcf_margin:.1%}")
+            else:
+                results['FCF Margin (>10%)'] = (False, "Data Missing")
             
             # Stability
             current_ratio = info.get('currentRatio', 0)
-            results['Current Ratio (>1.5)'] = (current_ratio > 1.5, f"{current_ratio:.2f}" if current_ratio else "N/A")
+            results['Current Ratio (>1.5)'] = (current_ratio > 1.5 if current_ratio else False, f"{current_ratio:.2f}" if current_ratio else "N/A")
             
             # Valuation
             pe_ratio = info.get('trailingPE', None)
