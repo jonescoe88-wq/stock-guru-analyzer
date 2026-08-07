@@ -134,30 +134,59 @@ if ticker_symbol:
                 st.write(f"**14-Day RSI Momentum Indicator:** {rsi:.1f}")
 
             # ==========================================
-            # 5. DYNAMIC HISTORICAL RETURN PERFORMANCE
+            # 5. HISTORICAL SIMULATION DATA ENGINE (ADAPTIVE TIME-HORIZON)
             # ==========================================
-            if len(hist_20y) >= 252:
-                years = len(hist_20y) / 252.3
-                stock_true_cagr = (hist_20y['Close'].iloc[-1] / hist_20y['Close'].iloc[0]) ** (1 / years) - 1
+            # Fetch whatever maximum history is available, even if short
+            max_hist = ticker.history(period="max")
+            
+            if len(max_hist) >= 5: # Needs at least a week of trading data to calculate
+                total_trading_days = len(max_hist)
+                years_trading = total_trading_days / 252.3
                 
-                rolling_max = hist_20y['Close'].cummax()
-                max_crash = ((hist_20y['Close'] - rolling_max) / rolling_max).min()
+                # Prevent math explosion for ultra-new IPOs by capping minimum years at a fraction
+                years_trading_capped = max(years_trading, 0.01) 
+                
+                # Calculate true annualized return since inception
+                asset_true_cagr = (max_hist['Close'].iloc[-1] / max_hist['Close'].iloc[0]) ** (1 / years_trading_capped) - 1
+                
+                # Peak-to-trough historical drawdown
+                rolling_max = max_hist['Close'].cummax()
+                max_crash = ((max_hist['Close'] - rolling_max) / rolling_max).min()
                 
                 st.markdown("---")
-                st.subheader("💰 20-Year Historical Risk Simulator")
-                st.caption(f"Simulating a $1,000 initial investment using the true historical footprint of **{ticker_symbol}**.")
+                st.subheader("💰 Asset Lifespan Risk & Return Simulator")
+                
+                # Dynamically frame the text labels based on asset maturity
+                if years_trading < 1.0:
+                    st.caption(f"🚨 **New Asset Profile:** This ticker has a short public footprint of only **{total_trading_days} trading days** (~{years_trading*12:.1f} months). Performance is highly volatile.")
+                else:
+                    st.caption(f"Simulating a $1,000 baseline investment across the available **{years_trading:.1f}-year** lifecycle of **{ticker_symbol}**.")
                 
                 principal = 1000.0
-                v1 = principal * (1 + stock_true_cagr)**1
-                v5 = principal * (1 + stock_true_cagr)**5
-                v10 = principal * (1 + stock_true_cagr)**10
                 
-                c1, c2, c3 = st.columns(3)
-                with c1: st.metric(label="1 Year Value", value=f"${v1:,.2f}", delta=f"+${v1 - principal:,.2f}")
-                with c2: st.metric(label="5 Year Value", value=f"${v5:,.2f}", delta=f"+${v5 - principal:,.2f}")
-                with c3: st.metric(label="10 Year Value", value=f"${v10:,.2f}", delta=f"+${v10 - principal:,.2f}")
+                # Adjust projection intervals based on how long the stock has actually existed
+                if years_trading < 1.0:
+                    # For brand new assets, show short-term compounding metrics
+                    v1 = principal * (1 + asset_true_cagr)**(1/12)
+                    v2 = principal * (1 + asset_true_cagr)**(3/12)
+                    v3 = principal * (1 + asset_true_cagr)**(6/12)
+                    
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric(label="Proj. 1-Month Value", value=f"${v1:,.2f}", delta=f"+${v1 - principal:,.2f}" if v1 >= principal else f"${v1 - principal:,.2f}")
+                    with c2: st.metric(label="Proj. 3-Month Value", value=f"${v2:,.2f}", delta=f"+${v2 - principal:,.2f}" if v2 >= principal else f"${v2 - principal:,.2f}")
+                    with c3: st.metric(label="Proj. 6-Month Value", value=f"${v3:,.2f}", delta=f"+${v3 - principal:,.2f}" if v3 >= principal else f"${v3 - principal:,.2f}")
+                else:
+                    # Standard annual milestones for mature assets
+                    v1 = principal * (1 + asset_true_cagr)**1
+                    v5 = principal * (1 + asset_true_cagr)**min(5, max(1, int(years_trading)))
+                    v10 = principal * (1 + asset_true_cagr)**min(10, max(1, int(years_trading)))
+                    
+                    label_5y = f"{min(5, max(1, int(years_trading)))} Year Value"
+                    label_10y = f"{min(10, max(1, int(years_trading)))} Year Value"
+                    
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric(label="1 Year Value", value=f"${v1:,.2f}", delta=f"+${v1 - principal:,.2f}" if v1 >= principal else f"${v1 - principal:,.2f}")
+                    with c2: st.metric(label=label_5y, value=f"${v5:,.2f}", delta=f"+${v5 - principal:,.2f}" if v5 >= principal else f"${v5 - principal:,.2f}")
+                    with c3: st.metric(label=label_10y, value=f"${v10:,.2f}", delta=f"+${v10 - principal:,.2f}" if v10 >= principal else f"${v10 - principal:,.2f}")
                 
-                st.warning(f"⚠️ **True Risk Assessment:** While the historical compound performance averaged **{stock_true_cagr:.1%}** annually, holding this exact stock meant surviving a devastating peak-to-trough drop of **{max_crash:.1%}** at its worst point.")
-
-        except Exception as e:
-            st.error(f"Error parsing market metrics: {e}")
+                st.warning(f"⚠️ **Volatility Risk Profile:** Based on its true historical footprint, the asset's annualized performance calculation trends at **{asset_true_cagr:.1%}**. However, holding this asset meant enduring a maximum peak-to-trough market drop of **{max_crash:.1%}** from its highs.")
