@@ -30,12 +30,25 @@ if ticker_symbol:
 
             # Extract Dividend Data Safely and Normalize Format
             dividend_yield = info.get('dividendYield', 0.0)
+            trailing_dividend = info.get('trailingAnnualDividendYield', 0.0)
+            
+            # Check for yfinance corruption cross-referencing trailing yield metric
+            if dividend_yield is not None and dividend_yield > 0.15 and trailing_dividend is not None and trailing_dividend < 0.05:
+                dividend_yield = trailing_dividend
+
             if dividend_yield is None:
                 dividend_yield = 0.0
                 
-            # FIX: Check if yfinance returned a whole number percentage instead of a decimal
+            # Fix 1: Check if yfinance returned a whole number percentage instead of a decimal
             if dividend_yield > 1.0:
                 dividend_yield = dividend_yield / 100.0
+                
+            # Fix 2: If it's still showing an unrealistic blue-chip yield, estimate via share price calculation
+            if dividend_yield > 0.15 and not is_crypto:
+                current_est_price = history['Close'].iloc[-1]
+                # If dividend_yield matches a raw dollar payout (like 0.25 to 0.40) rather than a real yield percentage
+                if dividend_yield < (current_est_price * 0.05):
+                    dividend_yield = (dividend_yield * 4) / current_est_price
 
             # ==========================================
             # 1. TECHNICAL MOMENTUM LAYER (ALL ASSETS)
