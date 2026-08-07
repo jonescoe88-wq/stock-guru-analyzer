@@ -147,7 +147,7 @@ if ticker_symbol:
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
             # ==========================================
-            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN TOGGLE
+            # 5. INTERACTIVE PERFORMANCE SIMULATOR
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -174,24 +174,12 @@ if ticker_symbol:
                     default_slider_val = float(max(-0.99, min(2.0, asset_true_cagr)))
                     projected_rate = st.slider("Projected Annual Growth Rate (%):", min_value=-50.0, max_value=150.0, value=default_slider_val * 100.0, step=0.5) / 100.0
 
-                market_scenario = st.selectbox(
-                    "Simulate Market Downturn Event:",
-                    ["None (Normal Market Conditions)", "Minor Correction (-10% Drop)", "Massive Downturn (-30% Crash)"]
-                )
-                
-                if "Minor" in market_scenario:
-                    crash_multiplier = 0.90
-                elif "Massive" in market_scenario:
-                    crash_multiplier = 0.70
-                else:
-                    crash_multiplier = 1.00
-
                 sim_rate = projected_rate
                 
                 if years_trading < 1.0:
-                    v1 = (sim_principal * (1 + sim_rate)**(1/12)) * crash_multiplier
-                    v2 = (sim_principal * (1 + sim_rate)**(3/12)) * crash_multiplier
-                    v3 = (sim_principal * (1 + sim_rate)**(6/12)) * crash_multiplier
+                    v1 = sim_principal * (1 + sim_rate)**(1/12)
+                    v2 = sim_principal * (1 + sim_rate)**(3/12)
+                    v3 = sim_principal * (1 + sim_rate)**(6/12)
                     
                     c1, c2, c3 = st.columns(3)
                     with c1: st.metric(label="Proj. 1-Month Value", value=f"${v1:,.2f}", delta=f"${v1 - sim_principal:+,.2f}")
@@ -201,9 +189,9 @@ if ticker_symbol:
                     target_5y = min(5, max(1, int(years_trading)))
                     target_10y = min(10, max(1, int(years_trading)))
                     
-                    v1 = (sim_principal * (1 + sim_rate)**1) * crash_multiplier
-                    v5 = (sim_principal * (1 + sim_rate)**target_5y) * crash_multiplier
-                    v10 = (sim_principal * (1 + sim_rate)**target_10y) * crash_multiplier
+                    v1 = sim_principal * (1 + sim_rate)**1
+                    v5 = sim_principal * (1 + sim_rate)**target_5y
+                    v10 = sim_principal * (1 + sim_rate)**target_10y
                     
                     c1, c2, c3 = st.columns(3)
                     with c1: st.metric(label="Proj. 1-Year Value", value=f"${v1:,.2f}", delta=f"${v1 - sim_principal:+,.2f}")
@@ -215,3 +203,4 @@ if ticker_symbol:
 
         except Exception as e:
             st.error(f"Error executing analysis engine metrics: {e}")
+        
