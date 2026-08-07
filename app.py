@@ -148,7 +148,7 @@ if ticker_symbol:
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
             # ==========================================
-            # 5. HISTORICAL SIMULATION DATA ENGINE
+            # 5. INTERACTIVE LIFESPAN RISK & RETURN SIMULATOR
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -156,44 +156,66 @@ if ticker_symbol:
                 years_trading = total_trading_days / 252.3
                 years_trading_capped = max(years_trading, 0.01)
                 
+                # Calculate true baseline historical average growth
                 asset_true_cagr = (max_hist['Close'].iloc[-1] / max_hist['Close'].iloc[0]) ** (1 / years_trading_capped) - 1
                 
+                # Peak-to-trough drawdown calculation
                 rolling_max = max_hist['Close'].cummax()
                 max_crash = ((max_hist['Close'] - rolling_max) / rolling_max).min()
                 
                 st.markdown("---")
-                st.subheader("💰 Asset Lifespan Risk & Return Simulator")
+                st.subheader("💰 Interactive Performance Simulator")
                 
                 if years_trading < 1.0:
-                    st.caption(f"🚨 **New Asset Profile:** This ticker has a short public footprint of only **{total_trading_days} trading days** (~{years_trading*12:.1f} months). Performance projections are high-risk.")
+                    st.caption(f"🚨 **New Asset Profile:** This ticker has a short public footprint of only **{total_trading_days} trading days** (~{years_trading*12:.1f} months).")
                 else:
-                    st.caption(f"Simulating a $1,000 baseline investment across the available **{years_trading:.1f}-year** lifecycle of **{ticker_symbol}**.")
+                    st.caption(f"Simulating performance across the available **{years_trading:.1f}-year** lifecycle of **{ticker_symbol}**.")
                 
-                principal = 1000.0
-                
-                if years_trading < 1.0:
-                    v1 = principal * (1 + asset_true_cagr)**(1/12)
-                    v2 = principal * (1 + asset_true_cagr)**(3/12)
-                    v3 = principal * (1 + asset_true_cagr)**(6/12)
-                    
-                    c1, c2, c3 = st.columns(3)
-                    with c1: st.metric(label="Proj. 1-Month Value", value=f"${v1:,.2f}", delta=f"+${v1 - principal:,.2f}" if v1 >= principal else f"${v1 - principal:,.2f}")
-                    with c2: st.metric(label="Proj. 3-Month Value", value=f"${v2:,.2f}", delta=f"+${v2 - principal:,.2f}" if v2 >= principal else f"${v2 - principal:,.2f}")
-                    with c3: st.metric(label="Proj. 6-Month Value", value=f"${v3:,.2f}", delta=f"+${v3 - principal:,.2f}" if v3 >= principal else f"${v3 - principal:,.2f}")
-                else:
-                    v1 = principal * (1 + asset_true_cagr)**1
-                    v5 = principal * (1 + asset_true_cagr)**min(5, max(1, int(years_trading)))
-                    v10 = principal * (1 + asset_true_cagr)**min(10, max(1, int(years_trading)))
-                    
-                    label_5y = f"{min(5, max(1, int(years_trading)))} Year Value"
-                    label_10y = f"{min(10, max(1, int(years_trading)))} Year Value"
-                    
-                    c1, c2, c3 = st.columns(3)
-                    with c1: st.metric(label="1 Year Value", value=f"${v1:,.2f}", delta=f"+${v1 - principal:,.2f}" if v1 >= principal else f"${v1 - principal:,.2f}")
-                    with c2: st.metric(label=label_5y, value=f"${v5:,.2f}", delta=f"+${v5 - principal:,.2f}" if v5 >= principal else f"${v5 - principal:,.2f}")
-                    with c3: st.metric(label=label_10y, value=f"${v10:,.2f}", delta=f"+${v10 - principal:,.2f}" if v10 >= principal else f"${v10 - principal:,.2f}")
-                
-                st.warning(f"⚠️ **Volatility Risk Profile:** The annualized performance trends at **{asset_true_cagr:.1%}**. However, holding this asset meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
+                # --- INTERACTIVE USER INPUT CONTROLS ---
+                col_sim1, col_sim2 = st.columns(2)
+                with col_sim1:
+                    sim_principal = st.number_input("Starting Investment ($):", min_value=100, max_value=1000000, value=1000, step=100)
+                with col_sim2:
+                    # Initialize the slider using the stock's actual historical average performance
+                    default_slider_val = float(max(-0.99, min(2.0, asset_true_cagr)))
+                    projected_rate = st.slider(
+                        "Projected Annual Growth Rate (%):", 
+                        min_value=-50.0, 
+                        max_value=150.0, 
+                        value=default_slider_val * 100.0, 
+                        step=0.5
+                    ) / 100.0
 
-        except Exception as e:
-            st.error(f"Error executing analysis engine metrics: {e}")
+                # Calculate forward growth based on the interactive slider selection
+                sim_rate = projected_rate
+                
+                if years_trading < 1.0:
+                    # Projection intervals for new assets (months)
+                    v1 = sim_principal * (1 + sim_rate)**(1/12)
+                    v2 = sim_principal * (1 + sim_rate)**(3/12)
+                    v3 = sim_principal * (1 + sim_rate)**(6/12)
+                    
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric(label="Proj. 1-Month Value", value=f"${v1:,.2f}", delta=f"${v1 - sim_principal:+,.2f}")
+                    with c2: st.metric(label="Proj. 3-Month Value", value=f"${v2:,.2f}", delta=f"${v2 - sim_principal:+,.2f}")
+                    with c3: st.metric(label="Proj. 6-Month Value", value=f"${v3:,.2f}", delta=f"${v3 - sim_principal:+,.2f}")
+                else:
+                    # Projection milestones for mature assets (years)
+                    target_5y = min(5, max(1, int(years_trading)))
+                    target_10y = min(10, max(1, int(years_trading)))
+                    
+                    v1 = sim_principal * (1 + sim_rate)**1
+                    v5 = sim_principal * (1 + sim_rate)**target_5y
+                    v10 = sim_principal * (1 + sim_rate)**target_10y
+                    
+                    label_5y = f"Proj. {target_5y}-Year Value"
+                    label_10y = f"Proj. {target_10y}-Year Value"
+                    
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric(label="Proj. 1-Year Value", value=f"${v1:,.2f}", delta=f"${v1 - sim_principal:+,.2f}")
+                    with c2: st.metric(label=label_5y, value=f"${v5:,.2f}", delta=f"${v5 - sim_principal:+,.2f}")
+                    with c3: st.metric(label=label_10y, value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
+                
+                # Context readouts to keep assumptions grounded
+                st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}**.")
+                st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
