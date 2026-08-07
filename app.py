@@ -156,8 +156,8 @@ if ticker_symbol:
                     for metric, (passed, value) in results.items():
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
-            # ==========================================
-            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN & DRIP
+           # ==========================================
+            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN & DRIP (FIXED)
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -181,10 +181,10 @@ if ticker_symbol:
                 with col_sim1:
                     sim_principal = st.number_input("Starting Investment ($):", min_value=100, max_value=1000000, value=1000, step=100)
                 with col_sim2:
-                    default_slider_val = float(max(-0.99, min(2.0, asset_true_cagr)))
-                    projected_rate = st.slider("Projected Annual Price Appreciation (%):", min_value=-50.0, max_value=150.0, value=default_slider_val * 100.0, step=0.5) / 100.0
+                    # SAFETY FIX: Clamp the default slider value strictly between -20% and +30% to prevent UI blowups
+                    clamped_cagr = float(max(-0.20, min(0.30, asset_true_cagr)))
+                    projected_rate = st.slider("Projected Annual Price Appreciation (%):", min_value=-50.0, max_value=50.0, value=clamped_cagr * 100.0, step=0.5) / 100.0
 
-                # Interactive Dividend Controls Side-by-Side with Downside Scenario
                 col_ctrl1, col_ctrl2 = st.columns(2)
                 with col_ctrl1:
                     market_scenario = st.selectbox(
@@ -201,7 +201,7 @@ if ticker_symbol:
                 else:
                     crash_multiplier = 1.00
 
-                # Add dividend yield directly to the compounding engine if DRIP is checked
+                # Strictly combining identical decimal formats
                 sim_rate = projected_rate
                 if drip_enabled:
                     sim_rate += dividend_yield
@@ -229,7 +229,4 @@ if ticker_symbol:
                     with c3: st.metric(label=f"Proj. {target_10y}-Year Value", value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
                 
                 st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}** (excluding dividends).")
-                st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
-
-        except Exception as e:
-            st.error(f"Error executing analysis engine metrics: {e}")
+                st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")gine metrics: {e}")
