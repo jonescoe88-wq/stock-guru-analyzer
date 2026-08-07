@@ -125,7 +125,6 @@ if ticker_symbol:
                         st.metric(label="Suggested Holding Duration", value="0 Days (Immediate Skip)")
                         st.info(f"**Justification:** New public listing lacking long-term foundational metrics, and near-term price momentum is downward.")
                 else:
-                    # Upgrade check logic to identify structural dividend strongholds
                     if long_term_score >= 3 or (dividend_yield > 0.03 and long_term_score >= 2):
                         st.success("### 🟢 RECOMMENDATION: LONG-TERM INVESTING HOLD / INCOME SOURCE")
                         st.metric(label="Suggested Holding Duration", value="3 to 10+ Years")
@@ -156,8 +155,8 @@ if ticker_symbol:
                     for metric, (passed, value) in results.items():
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
-           # ==========================================
-            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN & DRIP (FIXED)
+            # ==========================================
+            # 5. INTERACTIVE PERFORMANCE SIMULATOR WITH DOWNTURN & DRIP
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -181,7 +180,6 @@ if ticker_symbol:
                 with col_sim1:
                     sim_principal = st.number_input("Starting Investment ($):", min_value=100, max_value=1000000, value=1000, step=100)
                 with col_sim2:
-                    # SAFETY FIX: Clamp the default slider value strictly between -20% and +30% to prevent UI blowups
                     clamped_cagr = float(max(-0.20, min(0.30, asset_true_cagr)))
                     projected_rate = st.slider("Projected Annual Price Appreciation (%):", min_value=-50.0, max_value=50.0, value=clamped_cagr * 100.0, step=0.5) / 100.0
 
@@ -201,7 +199,6 @@ if ticker_symbol:
                 else:
                     crash_multiplier = 1.00
 
-                # Strictly combining identical decimal formats
                 sim_rate = projected_rate
                 if drip_enabled:
                     sim_rate += dividend_yield
@@ -230,3 +227,6 @@ if ticker_symbol:
                 
                 st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}** (excluding dividends).")
                 st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
+
+        except Exception as e:
+            st.error(f"Error executing analysis engine metrics: {e}")
