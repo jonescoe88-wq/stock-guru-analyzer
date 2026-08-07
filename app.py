@@ -6,7 +6,7 @@ import numpy as np
 st.set_page_config(page_title="Guru Asset Analyzer", layout="centered")
 
 st.title("📊 Multi-Asset Strategy Analyzer")
-st.write("Input any stock ticker, new IPO, or cryptocurrency to evaluate its optimal holding window.")
+st.write("Input any stock ticker, new public equity, or cryptocurrency to evaluate its performance profile.")
 
 # User input field
 ticker_symbol = st.text_input("Enter Asset Ticker (e.g., AAPL, BTC-USD, KVUE):", "").upper()
@@ -97,7 +97,6 @@ if ticker_symbol:
             st.markdown("---")
             st.header("🎯 AGENT STRATEGY VERDICT")
             
-            # Determine asset maturity to contextualize warnings
             max_hist_len = len(ticker.history(period="max"))
             is_new_asset = max_hist_len < 252
             
@@ -115,11 +114,11 @@ if ticker_symbol:
                     if short_term_bullish:
                         st.warning("### 🟡 RECOMMENDATION: SHORT-TERM HODL / IPO TREND SWING")
                         st.metric(label="Suggested Holding Duration", value="2 to 8 Weeks (High Volatility)")
-                        st.info(f"**Justification:** This equity has less than 1 year of public trading history. Long-term corporate compounding quality cannot be reliably scrubbed yet. However, near-term buying pressure is strong. Play the technical momentum trend, but monitor closely.")
+                        st.info(f"**Justification:** This equity has less than 1 year of public trading history. Long-term corporate compounding quality cannot be reliably scrubbed yet. Near-term buying pressure is technically strong.")
                     else:
                         st.error("### 🔴 RECOMMENDATION: AVOID NEW ASSET (MOMENTUM DOWN)")
                         st.metric(label="Suggested Holding Duration", value="0 Days (Immediate Skip)")
-                        st.info(f"**Justification:** New public listing lacking long-term foundational data, and near-term price momentum is downward. Highly dangerous setup; avoid.")
+                        st.info(f"**Justification:** New public listing lacking long-term foundational metrics, and near-term price momentum is downward.")
                 else:
                     if long_term_score >= 3:
                         st.success("### 🟢 RECOMMENDATION: LONG-TERM INVESTING HOLD")
@@ -128,7 +127,7 @@ if ticker_symbol:
                     elif long_term_score < 3 and short_term_bullish:
                         st.warning("### 🟡 RECOMMENDATION: SHORT-TERM MOMENTUM TRADE ONLY")
                         st.metric(label="Suggested Holding Duration", value="2 to 6 Weeks (Strict Stop-Loss)")
-                        st.info(f"**Justification:** Weak corporate balance sheets or margins ({long_term_score}/{total_metrics}), but short-term price breakout momentum is strong. Ride the short swing, do not hold permanently.")
+                        st.info(f"**Justification:** Weak corporate fundamentals ({long_term_score}/{total_metrics}), but short-term price breakout momentum is strong. Ride the swing, do not hold permanently.")
                     else:
                         st.error("### 🔴 RECOMMENDATION: DO NOT ENTER (AVOID ASSET)")
                         st.metric(label="Suggested Holding Duration", value="0 Days (Immediate Skip)")
@@ -148,7 +147,7 @@ if ticker_symbol:
                         st.write(f"* **{metric}**: {value} — {'✅ PASS' if passed else '❌ FAIL'}")
 
             # ==========================================
-            # 5. INTERACTIVE LIFESPAN RISK & RETURN SIMULATOR
+            # 5. INTERACTIVE PERFORMANCE SIMULATOR
             # ==========================================
             max_hist = ticker.history(period="max")
             if len(max_hist) >= 5:
@@ -156,10 +155,7 @@ if ticker_symbol:
                 years_trading = total_trading_days / 252.3
                 years_trading_capped = max(years_trading, 0.01)
                 
-                # Calculate true baseline historical average growth
                 asset_true_cagr = (max_hist['Close'].iloc[-1] / max_hist['Close'].iloc[0]) ** (1 / years_trading_capped) - 1
-                
-                # Peak-to-trough drawdown calculation
                 rolling_max = max_hist['Close'].cummax()
                 max_crash = ((max_hist['Close'] - rolling_max) / rolling_max).min()
                 
@@ -171,26 +167,16 @@ if ticker_symbol:
                 else:
                     st.caption(f"Simulating performance across the available **{years_trading:.1f}-year** lifecycle of **{ticker_symbol}**.")
                 
-                # --- INTERACTIVE USER INPUT CONTROLS ---
                 col_sim1, col_sim2 = st.columns(2)
                 with col_sim1:
                     sim_principal = st.number_input("Starting Investment ($):", min_value=100, max_value=1000000, value=1000, step=100)
                 with col_sim2:
-                    # Initialize the slider using the stock's actual historical average performance
                     default_slider_val = float(max(-0.99, min(2.0, asset_true_cagr)))
-                    projected_rate = st.slider(
-                        "Projected Annual Growth Rate (%):", 
-                        min_value=-50.0, 
-                        max_value=150.0, 
-                        value=default_slider_val * 100.0, 
-                        step=0.5
-                    ) / 100.0
+                    projected_rate = st.slider("Projected Annual Growth Rate (%):", min_value=-50.0, max_value=150.0, value=default_slider_val * 100.0, step=0.5) / 100.0
 
-                # Calculate forward growth based on the interactive slider selection
                 sim_rate = projected_rate
                 
                 if years_trading < 1.0:
-                    # Projection intervals for new assets (months)
                     v1 = sim_principal * (1 + sim_rate)**(1/12)
                     v2 = sim_principal * (1 + sim_rate)**(3/12)
                     v3 = sim_principal * (1 + sim_rate)**(6/12)
@@ -200,7 +186,6 @@ if ticker_symbol:
                     with c2: st.metric(label="Proj. 3-Month Value", value=f"${v2:,.2f}", delta=f"${v2 - sim_principal:+,.2f}")
                     with c3: st.metric(label="Proj. 6-Month Value", value=f"${v3:,.2f}", delta=f"${v3 - sim_principal:+,.2f}")
                 else:
-                    # Projection milestones for mature assets (years)
                     target_5y = min(5, max(1, int(years_trading)))
                     target_10y = min(10, max(1, int(years_trading)))
                     
@@ -208,14 +193,14 @@ if ticker_symbol:
                     v5 = sim_principal * (1 + sim_rate)**target_5y
                     v10 = sim_principal * (1 + sim_rate)**target_10y
                     
-                    label_5y = f"Proj. {target_5y}-Year Value"
-                    label_10y = f"Proj. {target_10y}-Year Value"
-                    
                     c1, c2, c3 = st.columns(3)
                     with c1: st.metric(label="Proj. 1-Year Value", value=f"${v1:,.2f}", delta=f"${v1 - sim_principal:+,.2f}")
-                    with c2: st.metric(label=label_5y, value=f"${v5:,.2f}", delta=f"${v5 - sim_principal:+,.2f}")
-                    with c3: st.metric(label=label_10y, value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
+                    with c2: st.metric(label=f"Proj. {target_5y}-Year Value", value=f"${v5:,.2f}", delta=f"${v5 - sim_principal:+,.2f}")
+                    with c3: st.metric(label=f"Proj. {target_10y}-Year Value", value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
                 
-                # Context readouts to keep assumptions grounded
                 st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}**.")
                 st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
+
+        except Exception as e:
+            st.error(f"Error executing analysis engine metrics: {e}")
+        
