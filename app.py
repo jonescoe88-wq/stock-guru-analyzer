@@ -28,10 +28,14 @@ if ticker_symbol:
                 st.error("No trading history found for this ticker symbol. Please verify the spelling.")
                 st.stop()
 
-            # Extract Dividend Data Safely
+            # Extract Dividend Data Safely and Normalize Format
             dividend_yield = info.get('dividendYield', 0.0)
             if dividend_yield is None:
                 dividend_yield = 0.0
+                
+            # FIX: Check if yfinance returned a whole number percentage instead of a decimal
+            if dividend_yield > 1.0:
+                dividend_yield = dividend_yield / 100.0
 
             # ==========================================
             # 1. TECHNICAL MOMENTUM LAYER (ALL ASSETS)
