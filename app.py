@@ -22,8 +22,9 @@ if ticker_symbol:
             history = ticker.history(period="1y")
             hist_20y = ticker.history(period="20y")
             
-            if financials.shape[1] < 2 or cashflow.shape[1] < 2:
-                st.error("Insufficient historical financial data available for this ticker.")
+            # Ensure the dataframes actually contain data rows before processing
+            if financials.empty or cashflow.empty:
+                st.error("Yahoo Finance did not return enough fundamental statement history for this ticker. Try an established US equity (e.g., AAPL, MSFT).")
                 st.stop()
                 
            # ==========================================
