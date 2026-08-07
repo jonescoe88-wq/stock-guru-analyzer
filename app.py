@@ -229,4 +229,4 @@ if ticker_symbol:
                     with c3: st.metric(label=f"Proj. {target_10y}-Year Value", value=f"${v10:,.2f}", delta=f"${v10 - sim_principal:+,.2f}")
                 
                 st.info(f"📈 **Baseline Context:** The actual historical annualized return for **{ticker_symbol}** over its public history is **{asset_true_cagr:.1%}** (excluding dividends).")
-                st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")gine metrics: {e}")
+                st.warning(f"⚠️ **Volatility Risk Profile:** Regardless of your projected growth settings, surviving this asset's historical cycle meant enduring a maximum peak-to-trough market correction of **{max_crash:.1%}**.")
